@@ -1,0 +1,11 @@
+version: '3.9'
+
+services:
+  youtube-transcript:
+    image: turc1656/my-repo:youtube-transcript
+    container_name: youtube-transcript
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    restart: unless-stopped

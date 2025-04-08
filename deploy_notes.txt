@@ -1,0 +1,4 @@
+pip freeze > requirements.txt
+docker build -t youtube-transcript-app .
+docker tag youtube-transcript-app turc1656/my-repo:youtube-transcript
+docker push turc1656/my-repo:youtube-transcript
