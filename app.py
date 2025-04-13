@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
 from youtube_transcript_api.proxies import GenericProxyConfig
 from urllib.parse import urlparse, parse_qs
@@ -61,14 +61,21 @@ def fetch_transcript(video_url):
     except Exception as e:
         return f"An unexpected error occurred: {e}"
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
 def index():
-    transcript = None
-    if request.method == 'POST':
-        video_url = request.form.get('video_url')
-        transcript = fetch_transcript(video_url)
-    return render_template('index.html', transcript=transcript)
+    return render_template('index.html')
+
+@app.route('/fetch_transcript', methods=['POST'])
+def fetch_transcript_endpoint():
+    video_url = request.form.get('video_url')
+    transcript = fetch_transcript(video_url)
+    
+    # Check if the transcript is an error message
+    if transcript.startswith("Invalid") or transcript.startswith("No") or transcript.startswith("An") or transcript.startswith("Transcripts") or transcript.startswith("The video"):
+        return jsonify({"success": False, "message": transcript})
+    else:
+        return jsonify({"success": True, "transcript": transcript})
 
 if __name__ == '__main__':
     load_dotenv()  # Load environment variables from .env file
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)  # Adding debug=True for auto-reload
