@@ -78,4 +78,4 @@ def fetch_transcript_endpoint():
 
 if __name__ == '__main__':
     load_dotenv()  # Load environment variables from .env file
-    app.run(host='0.0.0.0', port=5000, debug=True)  # Adding debug=True for auto-reload
+    app.run(host='0.0.0.0', port=5000)  # TODO REMINDER: Remove debug=True when deploying (this is the auto-reload feature)

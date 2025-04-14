@@ -1,4 +1,8 @@
 pip freeze > requirements.txt
+update version number in index.html
+remove "debug=True" in app.run() in app.py
+git commit
 docker build -t youtube-transcript-app .
 docker tag youtube-transcript-app turc1656/my-repo:youtube-transcript
 docker push turc1656/my-repo:youtube-transcript
+add back "debug=True"
