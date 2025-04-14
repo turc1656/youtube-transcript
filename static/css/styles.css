@@ -8,6 +8,12 @@
     --md-sys-color-outline: #555b58; /* Lighter version of onyx for outlines */
     --md-text-color: #e0e0e0; /* Light text for dark background */
     --md-text-accent: #e8476f; /* Cerise for text accents */
+    
+    /* Add color scheme to help browsers adapt context menus */
+    color-scheme: dark;
+
+    /* This makes browser-generated validation messages use a lighter gray */
+    --md-validation-bg: #4a4f4c;
 }
 
 body {
@@ -47,21 +53,54 @@ body {
     color: var(--md-text-color);
 }
 
+/* Simplified form control styling */
 .form-control {
     width: 100%;
     padding: 12px 16px;
     font-size: 16px;
     border-radius: 12px;
     border: 1px solid var(--md-sys-color-outline);
-    background-color: #1e201f; /* Darker background for inputs */
+    background-color: #1e201f !important;
     box-sizing: border-box;
     margin-bottom: 16px;
     color: var(--md-text-color);
+    accent-color: var(--md-sys-color-primary);
+    /* Remove transition that causes delay/animation */
+    transition: none;
 }
 
 .form-control:focus {
     outline: none;
     border: 2px solid var(--md-sys-color-primary);
+    /* Remove transform to avoid repaints */
+    transform: none;
+}
+
+/* Clean up the error state styling - use a single approach */
+.error-thick-border {
+    border: 2px solid var(--md-text-accent) !important;
+    /* Remove box-shadow to improve performance */
+    box-shadow: none !important;
+}
+
+.error-thick-border:focus {
+    border: 2px solid var(--md-text-accent) !important;
+    /* Remove transform to avoid visual glitches */
+    transform: none !important;
+    outline: none;
+}
+
+.form-group {
+    position: relative;
+}
+
+.validation-message {
+    display: none;
+    color: #ff6b81;
+    font-size: 14px;
+    margin-top: -12px;
+    margin-bottom: 12px;
+    padding-left: 16px;
 }
 
 .btn {
@@ -209,4 +248,19 @@ textarea {
 /* Text center class */
 .text-center {
     text-align: center;
+}
+
+/* Customize text selection to match theme */
+::selection {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+}
+
+/* Improve input autofill contrast */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 30px #3a3f3c inset !important;
+    -webkit-text-fill-color: var(--md-text-color) !important;
+    caret-color: var(--md-text-color);
 }

@@ -15,10 +15,11 @@
     <div class="container">
         <div class="card">
             <h1 class="card-title text-center">YouTube Transcript Fetcher</h1>
-            <form id="transcriptForm" class="mb-4">
-                <div class="mb-3">
+            <form id="transcriptForm" class="mb-4" novalidate>
+                <div class="mb-3 form-group">
                     <label for="video_url" class="form-label">YouTube URL</label>
                     <input type="text" id="video_url" name="video_url" class="form-control" placeholder="Enter YouTube video URL" required>
+                    <div class="validation-message" id="url-validation-message"></div>
                 </div>
                 <button type="submit" class="btn btn-primary w-100">
                     <span class="material-icons" style="margin-right: 8px;">search</span>
@@ -34,7 +35,7 @@
                     Copy Transcript
                 </button>
             </div>
-            <div class="version">v1.2.1</div>
+            <div class="version">v1.2.2</div>
         </div>
     </div>
 
@@ -46,11 +47,45 @@
             const transcriptText = document.getElementById("transcriptText");
             const loadingSpinner = document.getElementById("loadingSpinner");
             const fetchBtnText = document.getElementById("fetchBtnText");
+            const urlInput = document.getElementById("video_url");
+            const validationMessage = document.getElementById("url-validation-message");
             
+            // Custom validation
+            function validateForm() {
+                let isValid = true;
+                
+                // Check URL field
+                if (!urlInput.value.trim()) {
+                    validationMessage.textContent = "Please enter a YouTube URL";
+                    validationMessage.style.display = "block";
+                    // Use our new explicit class instead of 'invalid'
+                    urlInput.classList.add("error-thick-border");
+                    isValid = false;
+                } else {
+                    validationMessage.textContent = "";
+                    validationMessage.style.display = "none";
+                    urlInput.classList.remove("error-thick-border");
+                }
+                
+                return isValid;
+            }
+            
+            // Remove validation message when typing
+            urlInput.addEventListener("input", function() {
+                validationMessage.style.display = "none";
+                // Remove our new class instead of 'invalid'
+                urlInput.classList.remove("error-thick-border");
+            });
+
             form.addEventListener("submit", function(e) {
                 e.preventDefault(); // Prevent traditional form submission
                 
-                const videoUrl = document.getElementById("video_url").value;
+                // Run custom validation
+                if (!validateForm()) {
+                    return;
+                }
+                
+                const videoUrl = urlInput.value;
                 
                 // Show loading state
                 loadingSpinner.style.display = "inline-block";
