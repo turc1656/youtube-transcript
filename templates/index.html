@@ -35,7 +35,7 @@
                     Copy Transcript
                 </button>
             </div>
-            <div class="version">v1.3.0</div>
+            <div class="version">v2.0.3</div>
         </div>
     </div>
 
@@ -110,7 +110,47 @@
                         transcriptOutput.style.display = "block";
                         transcriptText.value = data.transcript;
                     } else {
-                        showToast(data.message);
+                        // Build detailed error message with debug info
+                        let errorMessage = data.message || "Error fetching transcript";
+                        
+                        // If debug info exists, log it to console and optionally show in toast
+                        if (data.debug) {
+                            console.error("Debug Info:", {
+                                status: data.debug.status,
+                                headers: data.debug.headers,
+                                preview: data.debug.preview
+                            });
+                            
+                            // Optionally append status to user message
+                            if (data.debug.status) {
+                                errorMessage += ` (Status: ${data.debug.status})`;
+                            }
+                        }
+                        
+                        showToast(errorMessage);
+                    }
+
+                    // Remaining API Quota Information
+                    if (data.requests_remaining) {
+                        // Remove existing rate limit info if it exists
+                        const existingRateLimitInfo = document.getElementById('rate-limit-info');
+                        if (existingRateLimitInfo) {
+                            existingRateLimitInfo.remove();
+                        }
+                        
+                        const apiQuotaDiv = document.createElement('div');
+                        apiQuotaDiv.id = 'rate-limit-info';
+                        apiQuotaDiv.style.marginTop = '10px';
+                        apiQuotaDiv.style.fontSize = '14px';
+                        apiQuotaDiv.style.color = '#666';
+                        apiQuotaDiv.innerHTML = `
+                            <div>API calls remaining: ${data.requests_remaining}</div>
+                            ${data.quota_reset ? `<div>Quota resets in: ${data.quota_reset}</div>` : ''}
+                        `;
+                        
+                        // Insert after the copy button
+                        const copyButton = document.getElementById('copyButton');
+                        copyButton.parentNode.insertBefore(apiQuotaDiv, copyButton.nextSibling);
                     }
                 })
                 .catch(error => {
