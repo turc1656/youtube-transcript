@@ -10,6 +10,8 @@ import requests
 import json
 from datetime import timedelta
 
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -17,6 +19,14 @@ def query_rapidapi_provider(video_url):
     rapidapi_host = os.getenv("RAPIDAPI_HOST")
     rapidapi_key = os.getenv("RAPIDAPI_KEY")
     query_url = os.getenv("YT_API_RAPIDAPI_URL")
+
+    # Validate environment variables are set
+    if not rapidapi_host:
+        raise ValueError("RAPIDAPI_HOST environment variable is not set")
+    if not rapidapi_key:
+        raise ValueError("RAPIDAPI_KEY environment variable is not set")
+    if not query_url:
+        raise ValueError("YT_API_RAPIDAPI_URL environment variable is not set")
 
     querystring = {"id":video_url}
 
@@ -31,8 +41,14 @@ def query_rapidapi_provider(video_url):
     requests_remaining = response.headers.get('x-ratelimit-requests-remaining', 'N/A')
     quota_reset = response.headers.get('x-ratelimit-requests-reset', 'N/A')
     print(f"Rate limit remaining: {requests_remaining}")
-    quota_seconds=int(quota_reset)
-    readable_quota_seconds = str(timedelta(seconds=quota_seconds))
+    
+    # Handle quota_reset conversion safely
+    try:
+        quota_seconds = int(quota_reset)
+        readable_quota_seconds = str(timedelta(seconds=quota_seconds))
+    except (ValueError, TypeError):
+        readable_quota_seconds = quota_reset
+    
     print(f"Rate limit resets in: {readable_quota_seconds}")
     
     return response.json(), requests_remaining, readable_quota_seconds
@@ -157,40 +173,69 @@ def index():
 
 @app.route('/fetch_transcript', methods=['POST'])
 def fetch_transcript_endpoint():
-    video_url = request.form.get('video_url')
-    video_id = extract_video_id(video_url)
-    if not video_id:
-        return jsonify({"success": False, "message": "Invalid YouTube URL"})
-    
-    api_response, requests_remaining, quota_reset = query_rapidapi_provider(video_id)
-    subtitle_url = parse_query_response(api_response)
-    if not subtitle_url:
-        return jsonify({"success": False, "message": "No English subtitles found", "requests_remaining": requests_remaining, "quota_reset": quota_reset})
+    try:
+        video_url = request.form.get('video_url')
+        video_id = extract_video_id(video_url)
+        if not video_id:
+            return jsonify({"success": False, "message": "Invalid YouTube URL"})
+        
+        # Wrap RapidAPI call in try-except
+        try:
+            api_response, requests_remaining, quota_reset = query_rapidapi_provider(video_id)
+        except Exception as e:
+            err_msg = f"Error querying RapidAPI: {e}"
+            print(err_msg)
+            return jsonify({
+                "success": False,
+                "message": "Error fetching transcript data. Please try again."
+                # "debug": {"error": str(e)}  # DEBUG ONLY: Uncomment for debugging, remove in production
+            })
+        
+        subtitle_url = parse_query_response(api_response)
+        if not subtitle_url:
+            return jsonify({
+                "success": False,
+                "message": "No English subtitles found",
+                "requests_remaining": requests_remaining,
+                "quota_reset": quota_reset
+                # , "debug": {"api_response": api_response}  # DEBUG ONLY: Uncomment for debugging, remove in production
+            })
 
-    transcript_result = fetch_transcript(subtitle_url)
+        transcript_result = fetch_transcript(subtitle_url)
+        
+        # When fetch_transcript returns structured data, include debug info on failure
+        if not transcript_result.get("ok"):
+            # debug = {  # DEBUG ONLY: Uncomment for debugging, remove in production
+            #     "status": transcript_result.get("status"),
+            #     "headers": transcript_result.get("headers"),
+            #     "preview": transcript_result.get("preview")
+            # }
+            return jsonify({
+                "success": False,
+                "message": "Error fetching transcript. Please try again.",
+                # "debug": debug,  # DEBUG ONLY: Uncomment for debugging, remove in production
+                "requests_remaining": requests_remaining,
+                "quota_reset": quota_reset
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "transcript": transcript_result.get("text"),
+                "requests_remaining": requests_remaining,
+                "quota_reset": quota_reset
+            })
     
-    # When fetch_transcript returns structured data, include debug info on failure
-    if not transcript_result.get("ok"):
-        debug = {
-            "status": transcript_result.get("status"),
-            "headers": transcript_result.get("headers"),
-            "preview": transcript_result.get("preview")
-        }
+    except Exception as e:
+        # Catch-all for any unhandled exceptions
+        err_msg = f"Unexpected server error: {e}"
+        print(err_msg)
+        import traceback
+        traceback.print_exc()
         return jsonify({
             "success": False,
-            "message": transcript_result.get("error"),
-            "debug": debug,
-            "requests_remaining": requests_remaining,
-            "quota_reset": quota_reset
-        })
-    else:
-        return jsonify({
-            "success": True,
-            "transcript": transcript_result.get("text"),
-            "requests_remaining": requests_remaining,
-            "quota_reset": quota_reset
-        })
+            "message": "An unexpected error occurred. Please try again."
+            # , "debug": {"exception": str(e), "type": type(e).__name__}  # DEBUG ONLY: Uncomment for debugging, remove in production
+        }), 500
 
 if __name__ == '__main__':
-    load_dotenv()  # Load environment variables from .env file
     app.run(host='0.0.0.0', port=5000, debug=False)  # TODO REMINDER: Remove debug=True when deploying (this is the auto-reload feature)
