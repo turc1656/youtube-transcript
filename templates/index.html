@@ -112,6 +112,29 @@
                     } else {
                         showToast(data.message);
                     }
+
+                    // Remaining API Quota Information
+                    if (data.requests_remaining) {
+                        // Remove existing rate limit info if it exists
+                        const existingRateLimitInfo = document.getElementById('rate-limit-info');
+                        if (existingRateLimitInfo) {
+                            existingRateLimitInfo.remove();
+                        }
+                        
+                        const apiQuotaDiv = document.createElement('div');
+                        apiQuotaDiv.id = 'rate-limit-info';
+                        apiQuotaDiv.style.marginTop = '10px';
+                        apiQuotaDiv.style.fontSize = '14px';
+                        apiQuotaDiv.style.color = '#666';
+                        apiQuotaDiv.innerHTML = `
+                            <div>API calls remaining: ${data.requests_remaining}</div>
+                            ${data.quota_reset ? `<div>Quota resets in: ${data.quota_reset}</div>` : ''}
+                        `;
+                        
+                        // Insert after the copy button
+                        const copyButton = document.getElementById('copyButton');
+                        copyButton.parentNode.insertBefore(apiQuotaDiv, copyButton.nextSibling);
+                    }
                 })
                 .catch(error => {
                     // Hide loading state
