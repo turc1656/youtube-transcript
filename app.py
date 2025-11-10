@@ -67,41 +67,59 @@ def fetch_transcript(transcript_url):
     """
     Fetch and parse the transcript from the provided URL.
     
-    Args:
-        transcript_url: URL to the SRV1 format XML transcript
-        
-    Returns:
-        str: Parsed transcript text or error message
+    Returns a dict with:
+      - ok: bool
+      - text: transcript text (when ok)
+      - error: error message (when not ok)
+      - status, headers, preview: debug info (when available)
     """
     try:
-        # Make HTTP request to fetch the transcript
-        response = requests.get(transcript_url)
-        response.raise_for_status()  # Raise exception for bad status codes
-        
-        xml_content = response.text
-        
+        response = requests.get(transcript_url, timeout=10)
+        status = response.status_code
+        headers = dict(response.headers)
+        text_body = response.text
+
+        # Will raise for non-2xx responses
+        response.raise_for_status()
+
         # Parse the SRV1 XML format
-        root = ET.fromstring(xml_content)
-        
+        root = ET.fromstring(text_body)
+
         # Extract all text elements and decode HTML entities
         text_segments = []
         for text_element in root.findall('text'):
             text_content = text_element.text
             if text_content:
-                # Decode HTML entities like &#39; to '
                 decoded_text = html.unescape(text_content)
                 text_segments.append(decoded_text)
-        
-        # Join all segments with spaces to create readable text
+
         transcript_text = ' '.join(text_segments)
-        return transcript_text
-        
+        return {"ok": True, "text": transcript_text, "status": status, "headers": headers}
+
+    except requests.HTTPError as e:
+        resp = getattr(e, "response", None)
+        status = resp.status_code if resp is not None else "N/A"
+        preview = (resp.text[:1000] if resp is not None else "")
+        headers = (dict(resp.headers) if resp is not None else {})
+        err = f"HTTP error fetching transcript: {e}"
+        print(err, "status=", status, "headers=", headers, "preview_len=", len(preview))
+        return {"ok": False, "error": err, "status": status, "headers": headers, "preview": preview}
+
     except requests.RequestException as e:
-        return f"Error fetching transcript: {e}"
+        err = f"Request exception fetching transcript: {e}"
+        print(err)
+        return {"ok": False, "error": err}
+
     except ET.ParseError as e:
-        return f"Error parsing XML transcript: {e}"
+        preview = (text_body[:1000] if 'text_body' in locals() else "")
+        err = f"Error parsing XML transcript: {e}"
+        print(err, "preview_len=", len(preview) if preview else 0)
+        return {"ok": False, "error": err, "status": status if 'status' in locals() else "N/A", "preview": preview}
+
     except Exception as e:
-        return f"An error occurred: {e}"
+        err = f"An unexpected error occurred: {e}"
+        print(err)
+        return {"ok": False, "error": err}
 
 def extract_video_id(video_url):
     """
@@ -149,13 +167,29 @@ def fetch_transcript_endpoint():
     if not subtitle_url:
         return jsonify({"success": False, "message": "No English subtitles found", "requests_remaining": requests_remaining, "quota_reset": quota_reset})
 
-    transcript = fetch_transcript(subtitle_url)
+    transcript_result = fetch_transcript(subtitle_url)
     
-    # Check if the transcript is an error message
-    if transcript.startswith("Error") or transcript.startswith("Invalid") or transcript.startswith("No") or transcript.startswith("An") or transcript.startswith("Transcripts") or transcript.startswith("The video"):
-        return jsonify({"success": False, "message": transcript, "requests_remaining": requests_remaining, "quota_reset": quota_reset})
+    # When fetch_transcript returns structured data, include debug info on failure
+    if not transcript_result.get("ok"):
+        debug = {
+            "status": transcript_result.get("status"),
+            "headers": transcript_result.get("headers"),
+            "preview": transcript_result.get("preview")
+        }
+        return jsonify({
+            "success": False,
+            "message": transcript_result.get("error"),
+            "debug": debug,
+            "requests_remaining": requests_remaining,
+            "quota_reset": quota_reset
+        })
     else:
-        return jsonify({"success": True, "transcript": transcript, "requests_remaining": requests_remaining, "quota_reset": quota_reset})
+        return jsonify({
+            "success": True,
+            "transcript": transcript_result.get("text"),
+            "requests_remaining": requests_remaining,
+            "quota_reset": quota_reset
+        })
 
 if __name__ == '__main__':
     load_dotenv()  # Load environment variables from .env file

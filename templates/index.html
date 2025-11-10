@@ -35,7 +35,7 @@
                     Copy Transcript
                 </button>
             </div>
-            <div class="version">v2.0.0</div>
+            <div class="version">v2.0.1</div>
         </div>
     </div>
 
@@ -110,7 +110,24 @@
                         transcriptOutput.style.display = "block";
                         transcriptText.value = data.transcript;
                     } else {
-                        showToast(data.message);
+                        // Build detailed error message with debug info
+                        let errorMessage = data.message || "Error fetching transcript";
+                        
+                        // If debug info exists, log it to console and optionally show in toast
+                        if (data.debug) {
+                            console.error("Debug Info:", {
+                                status: data.debug.status,
+                                headers: data.debug.headers,
+                                preview: data.debug.preview
+                            });
+                            
+                            // Optionally append status to user message
+                            if (data.debug.status) {
+                                errorMessage += ` (Status: ${data.debug.status})`;
+                            }
+                        }
+                        
+                        showToast(errorMessage);
                     }
 
                     // Remaining API Quota Information
