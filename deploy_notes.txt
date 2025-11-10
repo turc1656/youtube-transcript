@@ -7,3 +7,4 @@ docker tag youtube-transcript-app turc1656/my-repo:youtube-transcript
 docker push turc1656/my-repo:youtube-transcript
 run deploy script to trigger server side webhook for automatic docker pull and deployment
 add back "debug=True"
+git merge if branch was created
