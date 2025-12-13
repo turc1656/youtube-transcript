@@ -34,8 +34,12 @@
                     <span class="material-icons" style="margin-right: 8px;">content_copy</span>
                     Copy Transcript
                 </button>
+                <a id="openChatGptButton" class="btn btn-primary w-100 mt-2" href="#" target="_blank" rel="noopener noreferrer" style="display: none;">
+                    <span class="material-icons" style="margin-right: 8px;">chat</span>
+                    Summarize in ChatGPT
+                </a>
             </div>
-            <div class="version">v2.0.4</div>
+            <div class="version">v2.1.1</div>
         </div>
     </div>
 
@@ -49,6 +53,7 @@
             const fetchBtnText = document.getElementById("fetchBtnText");
             const urlInput = document.getElementById("video_url");
             const validationMessage = document.getElementById("url-validation-message");
+            const openChatGptButton = document.getElementById("openChatGptButton");
             
             // Custom validation
             function validateForm() {
@@ -109,7 +114,17 @@
                     if (data.success) {
                         transcriptOutput.style.display = "block";
                         transcriptText.value = data.transcript;
+
+                        if (data.chatgpt_url) {
+                            openChatGptButton.href = data.chatgpt_url;
+                            openChatGptButton.style.display = "inline-flex";
+                        } else {
+                            openChatGptButton.href = "#";
+                            openChatGptButton.style.display = "none";
+                        }
                     } else {
+                        openChatGptButton.href = "#";
+                        openChatGptButton.style.display = "none";
                         // Build detailed error message with debug info
                         let errorMessage = data.message || "Error fetching transcript";
                         
@@ -150,13 +165,16 @@
                         
                         // Insert after the copy button
                         const copyButton = document.getElementById('copyButton');
-                        copyButton.parentNode.insertBefore(apiQuotaDiv, copyButton.nextSibling);
+                        copyButton.parentNode.insertBefore(apiQuotaDiv, openChatGptButton.nextSibling);
                     }
                 })
                 .catch(error => {
                     // Hide loading state
                     loadingSpinner.style.display = "none";
                     fetchBtnText.textContent = "Fetch Transcript";
+
+                    openChatGptButton.href = "#";
+                    openChatGptButton.style.display = "none";
                     
                     showToast("Error fetching transcript. Please try again.");
                     console.error("Error:", error);
