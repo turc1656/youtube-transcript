@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response, url_for
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
 from youtube_transcript_api.proxies import GenericProxyConfig
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote
 from dotenv import load_dotenv
 import os
+import time
+import secrets
 import xml.etree.ElementTree as ET
 import html
 import requests
@@ -14,6 +16,37 @@ from datetime import timedelta
 load_dotenv()
 
 app = Flask(__name__)
+
+TRANSCRIPT_TTL_SECONDS = int(os.getenv("TRANSCRIPT_TTL_SECONDS", "3600"))
+TRANSCRIPT_STORE = {}
+
+
+def _utc_now_ts():
+    return int(time.time())
+
+
+def _make_token():
+    return secrets.token_urlsafe(16)
+
+
+def get_transcript_text(token: str):
+    entry = TRANSCRIPT_STORE.get(token)
+    if not entry:
+        return None
+
+    now = _utc_now_ts()
+    if entry.get("expires_at", 0) <= now:
+        TRANSCRIPT_STORE.pop(token, None)
+        return None
+
+    return entry.get("text")
+
+
+def _store_transcript_text(text: str):
+    token = _make_token()
+    expires_at = _utc_now_ts() + TRANSCRIPT_TTL_SECONDS
+    TRANSCRIPT_STORE[token] = {"text": text, "expires_at": expires_at}
+    return token
 
 def query_rapidapi_provider(video_url):
     rapidapi_host = os.getenv("RAPIDAPI_HOST")
@@ -218,9 +251,18 @@ def fetch_transcript_endpoint():
                 "quota_reset": quota_reset
             })
         else:
+            transcript_text = transcript_result.get("text")
+            token = _store_transcript_text(transcript_text)
+            transcript_page_url = url_for("get_transcript_raw", token=token, _external=True)
+            prompt = f"summarize this transcript\n{transcript_page_url}"
+            chatgpt_url = f"https://chat.openai.com/?q={quote(prompt, safe='')}"
             return jsonify({
                 "success": True,
-                "transcript": transcript_result.get("text"),
+                "transcript": transcript_text,
+                "transcript_token": token,
+                "transcript_url": transcript_page_url,
+                "transcript_page_url": transcript_page_url,
+                "chatgpt_url": chatgpt_url,
                 "requests_remaining": requests_remaining,
                 "quota_reset": quota_reset
             })
@@ -236,6 +278,20 @@ def fetch_transcript_endpoint():
             "message": "An unexpected error occurred. Please try again."
             # , "debug": {"exception": str(e), "type": type(e).__name__}  # DEBUG ONLY: Uncomment for debugging, remove in production
         }), 500
+
+
+@app.route("/t/<token>", methods=["GET"])
+def get_transcript_raw(token):
+    text = get_transcript_text(token)
+    headers = {"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store"}
+
+    if text is None:
+        return ("", 404, headers)
+
+    response = Response(text, mimetype="text/plain; charset=utf-8")
+    response.headers.update(headers)
+    return response
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)  # TODO REMINDER: Remove debug=True when deploying (this is the auto-reload feature)

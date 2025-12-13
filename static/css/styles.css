@@ -117,6 +117,7 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     height: 40px;
+    box-sizing: border-box;
 }
 
 .btn-primary {
@@ -159,6 +160,10 @@ textarea {
 
 .mb-4 {
     margin-bottom: 28px;
+}
+
+.mt-2 {
+    margin-top: 12px;
 }
 
 .h5 {
