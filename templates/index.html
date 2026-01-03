@@ -34,6 +34,10 @@
                     <span class="material-icons" style="margin-right: 8px;">content_copy</span>
                     Copy Transcript
                 </button>
+                <button id="downloadButton" class="btn btn-secondary w-100 mt-2" title="Download transcript as plain text file">
+                    <span class="material-icons" style="margin-right: 8px;">download</span>
+                    Download Transcript
+                </button>
                 <a id="openChatGptButton" class="btn btn-primary w-100 mt-2" href="#" target="_blank" rel="noopener noreferrer" style="display: none;">
                     <span class="material-icons" style="margin-right: 8px;">chat</span>
                     Summarize in ChatGPT
@@ -200,6 +204,33 @@
                     } else {
                         fallbackCopy(transcriptText);
                     }
+                });
+            }
+
+            // Download button handler
+            const downloadButton = document.getElementById("downloadButton");
+            if (downloadButton) {
+                downloadButton.addEventListener("click", function() {
+                    var transcriptText = document.getElementById("transcriptText");
+                    var text = transcriptText.value;
+                    
+                    // Create a Blob with the transcript text
+                    var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+                    
+                    // Create a temporary download link
+                    var downloadLink = document.createElement('a');
+                    downloadLink.href = URL.createObjectURL(blob);
+                    downloadLink.download = 'transcript.txt';
+                    
+                    // Trigger the download
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    
+                    // Clean up
+                    document.body.removeChild(downloadLink);
+                    URL.revokeObjectURL(downloadLink.href);
+                    
+                    showToast("Transcript downloaded!");
                 });
             }
         
