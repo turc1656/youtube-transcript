@@ -34,7 +34,7 @@
                     <span class="material-icons" style="margin-right: 8px;">content_copy</span>
                     Copy Transcript
                 </button>
-                <button id="downloadButton" class="btn btn-secondary w-100 mt-2" title="Download transcript as plain text file">
+                <button id="downloadButton" class="btn btn-secondary w-100 mt-2" title="Download transcript as plain text file" aria-label="Download transcript as plain text file">
                     <span class="material-icons" style="margin-right: 8px;">download</span>
                     Download Transcript
                 </button>
@@ -212,6 +212,12 @@
             if (downloadButton) {
                 downloadButton.addEventListener("click", function() {
                     var transcriptText = document.getElementById("transcriptText");
+                    if (!transcriptText) {
+                        console.error("Transcript text element not found");
+                        showToast("Error: Unable to download transcript");
+                        return;
+                    }
+                    
                     var text = transcriptText.value;
                     
                     // Create a Blob with the transcript text
