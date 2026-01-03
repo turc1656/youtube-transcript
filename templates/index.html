@@ -220,6 +220,12 @@
                     
                     var text = transcriptText.value;
                     
+                    // Check if transcript is empty
+                    if (!text || text.trim().length === 0) {
+                        showToast("Cannot download empty transcript");
+                        return;
+                    }
+                    
                     // Create a Blob with the transcript text
                     var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
                     
