@@ -16,8 +16,11 @@ from datetime import timedelta
 load_dotenv()
 
 app = Flask(__name__)
+# Reject oversized request bodies before they are read (/store_transcript accepts posted text)
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 
 TRANSCRIPT_TTL_SECONDS = int(os.getenv("TRANSCRIPT_TTL_SECONDS", "3600"))
+MAX_STORED_TRANSCRIPT_CHARS = 1_000_000
 TRANSCRIPT_STORE = {}
 
 
@@ -42,11 +45,34 @@ def get_transcript_text(token: str):
     return entry.get("text")
 
 
+def _prune_expired_transcripts():
+    # Expired entries are otherwise only removed when someone requests them
+    now = _utc_now_ts()
+    expired_tokens = [token for token, entry in TRANSCRIPT_STORE.items() if entry.get("expires_at", 0) <= now]
+    for token in expired_tokens:
+        TRANSCRIPT_STORE.pop(token, None)
+
+
 def _store_transcript_text(text: str):
+    _prune_expired_transcripts()
     token = _make_token()
     expires_at = _utc_now_ts() + TRANSCRIPT_TTL_SECONDS
     TRANSCRIPT_STORE[token] = {"text": text, "expires_at": expires_at}
     return token
+
+
+def _store_and_link_transcript(text: str):
+    """
+    Store transcript text and build the links that point to it.
+
+    Returns:
+        tuple: (token, raw transcript URL, ChatGPT URL that asks for a summary of it)
+    """
+    token = _store_transcript_text(text)
+    transcript_page_url = url_for("get_transcript_raw", token=token, _external=True)
+    prompt = f"summarize this transcript\n{transcript_page_url}"
+    chatgpt_url = f"https://chat.openai.com/?q={quote(prompt, safe='')}"
+    return token, transcript_page_url, chatgpt_url
 
 def query_rapidapi_provider(video_url):
     rapidapi_host = os.getenv("RAPIDAPI_HOST")
@@ -252,10 +278,7 @@ def fetch_transcript_endpoint():
             })
         else:
             transcript_text = transcript_result.get("text")
-            token = _store_transcript_text(transcript_text)
-            transcript_page_url = url_for("get_transcript_raw", token=token, _external=True)
-            prompt = f"summarize this transcript\n{transcript_page_url}"
-            chatgpt_url = f"https://chat.openai.com/?q={quote(prompt, safe='')}"
+            token, transcript_page_url, chatgpt_url = _store_and_link_transcript(transcript_text)
             return jsonify({
                 "success": True,
                 "transcript": transcript_text,
@@ -278,6 +301,31 @@ def fetch_transcript_endpoint():
             "message": "An unexpected error occurred. Please try again."
             # , "debug": {"exception": str(e), "type": type(e).__name__}  # DEBUG ONLY: Uncomment for debugging, remove in production
         }), 500
+
+
+@app.route('/store_transcript', methods=['POST'])
+def store_transcript_endpoint():
+    """
+    Store transcript text fetched elsewhere (e.g. by the YouTube userscript) and return its links.
+
+    Expects a JSON body: {"transcript": "..."}
+    """
+    payload = request.get_json(silent=True)
+    transcript_text = payload.get("transcript") if isinstance(payload, dict) else None
+
+    if not isinstance(transcript_text, str) or not transcript_text.strip():
+        return jsonify({"success": False, "message": "No transcript text provided"}), 400
+
+    if len(transcript_text) > MAX_STORED_TRANSCRIPT_CHARS:
+        return jsonify({"success": False, "message": "Transcript is too long"}), 413
+
+    token, transcript_page_url, chatgpt_url = _store_and_link_transcript(transcript_text.strip())
+    return jsonify({
+        "success": True,
+        "transcript_token": token,
+        "transcript_url": transcript_page_url,
+        "chatgpt_url": chatgpt_url
+    })
 
 
 @app.route("/t/<token>", methods=["GET"])

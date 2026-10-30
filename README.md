@@ -52,6 +52,8 @@ This project originally attempted to call YouTube APIs directly. That approach w
 - Downloads and parses the XML transcript
 - Renders a single, clean block of readable text
 - Displays remaining request quota information
+- Prefills the URL box from a `?video_url=` query parameter (used by the [YouTube button](#optional-youtube-button-tampermonkey))
+- Accepts transcript text fetched elsewhere at `POST /store_transcript` and returns the same temporary link and ChatGPT link (used by the YouTube button)
 
 ---
 
@@ -193,6 +195,40 @@ The current script sends the token as a **query parameter** (`?token=...`).
 For better security in production, consider:
 - Sending the token in a request header
 - Validating it server‑side before deploying
+
+---
+
+## Optional: YouTube button (Tampermonkey)
+
+`userscript/youtube-transcript-button.user.js` adds a **Summarize** button next to the Like / Share buttons under every YouTube video. One click:
+
+1. Fetches the video's transcript directly from YouTube (the same private API YouTube's own "Show transcript" panel uses — no RapidAPI request)
+2. Sends it to this app's `POST /store_transcript`, which stores it like any other transcript (temporary `/t/<token>` link, `TRANSCRIPT_TTL_SECONDS`)
+3. Opens ChatGPT with the app's "summarize this transcript" link
+
+If any step fails (the video has no transcript, YouTube changes its API, or the app can't be reached), it opens this app instead with the video URL filled in — then just click **Fetch Transcript**.
+
+To install:
+
+1. Install the [Tampermonkey](https://www.tampermonkey.net/) browser extension
+2. Open the Tampermonkey dashboard and create a new script
+3. Replace the template with the contents of `userscript/youtube-transcript-button.user.js` and save
+
+If you host the app somewhere else, change `APP_URL` and the matching `@connect` line at the top of the script.
+
+The Tampermonkey toolbar menu has two commands for the current video:
+- **Summarize in ChatGPT** — same as the button
+- **Open in transcript app** — opens this app with the video URL filled in, for reading, copying, or downloading the transcript
+
+The menu commands also work on Shorts, and keep working if a YouTube layout change stops the button from appearing (`BUTTON_ROW_SELECTOR` in the script is what needs updating).
+
+### `POST /store_transcript`
+
+Request body: `{"transcript": "..."}` (JSON, up to 1,000,000 characters)
+
+Response: `{"success": true, "transcript_token": "...", "transcript_url": ".../t/<token>", "chatgpt_url": "..."}`
+
+Returns `400` for missing or empty text and `413` for text over the limit. The endpoint is open (no key), like `/fetch_transcript`.
 
 ---
 
