@@ -200,7 +200,7 @@ For better security in production, consider:
 
 ## Optional: YouTube button (Tampermonkey)
 
-`userscript/youtube-transcript-button.user.js` adds a **Summarize** button next to the Like / Share buttons under every YouTube video. One click:
+`userscript/youtube-transcript-button.user.js` adds a **Summarize** button under every YouTube video — next to the Like / Share buttons on desktop, and right after **Subscribe** on the mobile site (`m.youtube.com`, e.g. Firefox for Android with Tampermonkey). One click:
 
 1. Fetches the video's transcript directly from YouTube (the same private API YouTube's own "Show transcript" panel uses — no RapidAPI request)
 2. Sends it to this app's `POST /store_transcript`, which stores it like any other transcript (temporary `/t/<token>` link, `TRANSCRIPT_TTL_SECONDS`)
@@ -216,11 +216,11 @@ To install:
 
 If you host the app somewhere else, change `APP_URL` and the matching `@connect` line at the top of the script.
 
-The Tampermonkey toolbar menu has two commands for the current video:
+The Tampermonkey menu (toolbar icon on desktop; **⋮ → Extensions → Tampermonkey** in Firefox for Android) has two commands for the current video:
 - **Summarize in ChatGPT** — same as the button
 - **Open in transcript app** — opens this app with the video URL filled in, for reading, copying, or downloading the transcript
 
-The menu commands also work on Shorts, and keep working if a YouTube layout change stops the button from appearing (`BUTTON_ROW_SELECTOR` in the script is what needs updating).
+The menu commands also work on Shorts, and keep working if a YouTube layout change stops the button from appearing (`DESKTOP_BUTTON_ROW_SELECTOR` / `MOBILE_BUTTON_ROW_SELECTOR` in the script are what need updating).
 
 ### `POST /store_transcript`
 

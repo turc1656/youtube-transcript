@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         YouTube Transcript Button
 // @namespace    https://yt.ryanturcotte.me/
-// @version      2.0.0
-// @description  Adds a "Summarize" button under YouTube videos that sends the video's transcript to ChatGPT through YouTube Transcript Fetcher
+// @version      2.1.0
+// @description  Adds a "Summarize" button under YouTube videos (desktop and mobile) that sends the video's transcript to ChatGPT through YouTube Transcript Fetcher
 // @match        https://www.youtube.com/*
+// @match        https://m.youtube.com/*
 // @grant        GM_addStyle
 // @grant        GM_openInTab
 // @grant        GM_registerMenuCommand
@@ -21,9 +22,13 @@
     const APP_URL = "https://yt.ryanturcotte.me/";
     const BUTTON_ID = "yt-transcript-app-button";
     const BUTTON_LABEL = "Summarize";
-    // The row with the Like / Share / Save buttons under the video. YouTube renames
-    // its markup from time to time; if the button stops appearing, check this first.
-    const BUTTON_ROW_SELECTOR = "ytd-watch-metadata #top-level-buttons-computed";
+    // Where the button goes. YouTube renames its markup from time to time;
+    // if the button stops appearing, check these first.
+    // Desktop: the row with the Like / Share / Save buttons under the video
+    const DESKTOP_BUTTON_ROW_SELECTOR = "ytd-watch-metadata #top-level-buttons-computed";
+    // Mobile (m.youtube.com): the sideways-scrolling row with Subscribe / Like / Share under the video
+    const MOBILE_BUTTON_ROW_SELECTOR = "ytm-slim-video-action-bar-renderer .slim-video-action-bar-actions";
+    const IS_MOBILE_SITE = window.location.hostname === "m.youtube.com";
     // YouTube's private API that loads the "Show transcript" panel
     const YOUTUBE_PANEL_API_URL = "https://www.youtube.com/youtubei/v1/get_panel?prettyPrint=false";
     // Used when the page's own client version can't be read; YouTube accepted older versions in testing
@@ -90,12 +95,17 @@
         });
     }
 
+    // Only the desktop site's version belongs to the WEB client this script uses;
+    // m.youtube.com reports its own MWEB client
     function getClientVersion() {
         try {
-            return unsafeWindow.ytcfg.get("INNERTUBE_CLIENT_VERSION") || FALLBACK_CLIENT_VERSION;
+            if (unsafeWindow.ytcfg.get("INNERTUBE_CLIENT_NAME") === "WEB") {
+                return unsafeWindow.ytcfg.get("INNERTUBE_CLIENT_VERSION") || FALLBACK_CLIENT_VERSION;
+            }
         } catch (error) {
-            return FALLBACK_CLIENT_VERSION;
+            // Fall through to the fallback version
         }
+        return FALLBACK_CLIENT_VERSION;
     }
 
     // The panel API's "params" value is the video ID wrapped in a small protobuf
@@ -212,7 +222,23 @@
         if (window.location.pathname !== "/watch" || document.getElementById(BUTTON_ID)) {
             return;
         }
-        const buttonRow = document.querySelector(BUTTON_ROW_SELECTOR);
+
+        if (IS_MOBILE_SITE) {
+            const buttonRow = document.querySelector(MOBILE_BUTTON_ROW_SELECTOR);
+            if (!buttonRow) {
+                return;
+            }
+            // Right after Subscribe, so it's visible without scrolling the row
+            const subscribeButton = buttonRow.querySelector(":scope > .slim-subscribe-button");
+            if (subscribeButton) {
+                subscribeButton.after(createButton());
+            } else {
+                buttonRow.prepend(createButton());
+            }
+            return;
+        }
+
+        const buttonRow = document.querySelector(DESKTOP_BUTTON_ROW_SELECTOR);
         if (buttonRow) {
             buttonRow.prepend(createButton());
         }
@@ -249,6 +275,15 @@
         }
         html[dark] #${BUTTON_ID}:hover {
             background: rgba(255, 255, 255, 0.2);
+        }
+        /* m.youtube.com follows the phone's light/dark setting instead of html[dark], so take
+           the text color from the surrounding row and tint the background from it */
+        ytm-slim-video-action-bar-renderer #${BUTTON_ID},
+        ytm-slim-video-action-bar-renderer #${BUTTON_ID}:hover {
+            height: 36px;
+            border-radius: 18px;
+            color: inherit;
+            background: color-mix(in srgb, currentColor 10%, transparent);
         }
     `);
 
