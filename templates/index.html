@@ -43,7 +43,7 @@
                     Summarize in ChatGPT
                 </a>
             </div>
-            <div class="version">v2.2.0</div>
+            <div class="version">v2.3.0</div>
         </div>
     </div>
 
@@ -85,6 +85,12 @@
                 // Remove our new class instead of 'invalid'
                 urlInput.classList.remove("error-thick-border");
             });
+
+            // Prefill the URL field from ?video_url= (e.g. when opened from YouTube)
+            const prefillUrl = new URLSearchParams(window.location.search).get("video_url");
+            if (prefillUrl) {
+                urlInput.value = prefillUrl;
+            }
 
             form.addEventListener("submit", function(e) {
                 e.preventDefault(); // Prevent traditional form submission
